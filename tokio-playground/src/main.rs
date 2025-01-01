@@ -1,24 +1,45 @@
-use tokio::time::{sleep, Duration};
-use tokio::spawn;
+use std::collections::HashMap;
+
+use mini_redis::{Connection, Frame};
+use mini_redis::Command::{self, Get, Set};
 
 #[tokio::main]
 async fn main() {
-    let wait1 = spawn(wait_some_seconds_my_brother(Duration::from_secs(2)));
-    let wait2 = spawn(wait_some_seconds_my_brother(Duration::from_secs(4)));
+    let server = tokio::net::TcpListener::bind("127.0.0.1:6379").await.unwrap();
 
-    if let Err(error) = wait1.await {
-        eprintln!("That's a shame my brother, wait1 failed {error}");
+    loop {
+        let (socket, _ip) = server.accept().await.unwrap();
+
+        tokio::spawn(async {
+            run(socket).await;
+        });
     }
-
-    if let Err(error) = wait2.await {
-        eprintln!("That's a shame my brother, wait2 failed {error}");
-    }
-
-    println!("Ended my brother");
 }
 
-async fn wait_some_seconds_my_brother(duration: Duration) {
-    sleep(duration).await;
+async fn run(socket: tokio::net::TcpStream) {
+    let mut connection = Connection::new(socket);
 
-    println!("waited {duration:?} ma brother");
+    let mut database: HashMap<String, Vec<u8>> = HashMap::new();
+
+    while let Some(frame) = connection.read_frame().await.unwrap() {
+        let frame = match Command::from_frame(frame).unwrap() {
+            Get(cmd) => {
+                if let Some(value) = database.get(cmd.key()) {
+                    Frame::Bulk(value.clone().into())
+                } else {
+                    Frame::Null
+                }
+            },
+            Set(cmd) => {
+                database.insert(cmd.key().to_string(), cmd.value().to_vec());
+
+                Frame::Simple("OK".to_string())
+            },
+            cmd => panic!("UNIMPLEMENTED CMD: {:?}", cmd),
+        };
+
+        println!("GOT {frame:?}");
+
+        connection.write_frame(&frame).await.unwrap();
+    }
 }
