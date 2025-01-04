@@ -17,6 +17,7 @@ async fn main() {
         .route("/users", routing::get(UsersController::get_all))
         .route("/users/{id}", routing::get(UsersController::get_by_id))
         .route("/users", routing::post(UsersController::create))
+        .route("/users/{id}", routing::put(UsersController::update))
         .with_state(users_controller);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

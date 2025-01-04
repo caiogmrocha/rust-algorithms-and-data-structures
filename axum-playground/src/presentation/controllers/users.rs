@@ -7,7 +7,7 @@ use crate::{
     app::services::{
         create_user::CreateUserService,
         get_all_users::GetAllUsersService,
-        get_user_by_id::GetUserByIdService,
+        get_user_by_id::GetUserByIdService, update_user::UpdateUserService,
     },
     config::database::DB,
     domain::entities::user::User,
@@ -18,6 +18,7 @@ pub struct UsersController {
     create_user_service: Arc<CreateUserService>,
     get_all_users_service: Arc<GetAllUsersService>,
     get_user_by_id_service: Arc<GetUserByIdService>,
+    update_user_service: Arc<UpdateUserService>,
 }
 
 impl UsersController {
@@ -27,11 +28,13 @@ impl UsersController {
         let create_user_service = Arc::new(CreateUserService::new(users_repository.clone()));
         let get_all_users_service = Arc::new(GetAllUsersService::new(users_repository.clone()));
         let get_user_by_id_service = Arc::new(GetUserByIdService::new(users_repository.clone()));
+        let update_user_service = Arc::new(UpdateUserService::new(users_repository.clone()));
 
         Self {
             create_user_service: create_user_service.clone(),
             get_all_users_service: get_all_users_service.clone(),
             get_user_by_id_service: get_user_by_id_service.clone(),
+            update_user_service: update_user_service.clone(),
         }
     }
 
@@ -60,5 +63,18 @@ impl UsersController {
         this.create_user_service.create(user).await.unwrap();
 
         (StatusCode::CREATED, Json(json!({ "message": "User created" })).into_response())
+    }
+
+    pub async fn update(
+        State(this): State<Arc<Self>>,
+        Path(id): Path<i32>,
+        Json(mut user): Json<User>,
+    ) -> impl IntoResponse {
+        user.id = id; 
+
+        match this.update_user_service.execute(user).await {
+            Ok(..) => (StatusCode::NO_CONTENT, Json(json!({ "message": "User updated with success" }))),
+            Err(error) => (StatusCode::NOT_FOUND, Json(json!({ "message": error }))),
+        }
     }
 }
