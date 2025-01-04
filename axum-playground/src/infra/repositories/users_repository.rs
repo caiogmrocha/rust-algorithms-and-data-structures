@@ -15,11 +15,25 @@ impl UsersRepository for InMemoryUsersRepository {
         db.values().cloned().collect()
     }
 
+    fn get_by_id(&self, id: i32) -> Option<User> {
+        let db = self.db.lock().unwrap();
+
+        db.values().find(|user| user.id == id).cloned() 
+    }
+
     fn create(&self, user: User) -> Result<(), String> {
         let mut db = self.db.lock().unwrap();
         let id = db.len() as i32 + 1;
 
         db.insert(id.to_string(), user);
+
+        Ok(())
+    }
+
+    fn update(&self, user: User) -> Result<(), String> {
+        let mut db = self.db.lock().unwrap();
+
+        db.insert(user.id.to_string(), user);
 
         Ok(())
     }
